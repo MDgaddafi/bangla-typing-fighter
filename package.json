@@ -1,0 +1,39 @@
+{
+  "name": "bangla-typing-fighter",
+  "version": "1.0.0",
+  "description": "Bangla Typing Fighter with Online Battle Mode",
+  "main": "main.js",
+  "scripts": {
+    "start": "node server.js",
+    "electron": "electron .",
+    "build:win": "electron-builder --win",
+    "build:mobile": "node scripts/build-mobile.js",
+    "cap:sync": "npm run build:mobile && npx cap sync"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "socket.io": "^4.7.5"
+  },
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.banglatypingfighter.app",
+    "productName": "Bangla Typing Fighter",
+    "directories": {
+      "output": "dist"
+    },
+    "win": {
+      "icon": "assets/icon.png",
+      "target": "nsis"
+    },
+    "files": [
+      "index.html",
+      "style.css",
+      "main.js",
+      "assets/**/*",
+      "js/**/*"
+    ]
+  }
+}

@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Bangla Typing Fighter (বাংলা টাইপিং ফাইটার)</title>
+  
+  <!-- Google Fonts: Outfit & Rajdhani -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800;900&family=Rajdhani:wght@600;700&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+
+
+  <div class="main-container">
+    <div class="game-wrapper">
+    <!-- Header Title Banner -->
+    <header class="game-header">
+      <div class="brand-title">
+        <span class="flag-icon">🇧🇩</span>
+        <span class="main-title">BANGLA TYPING FIGHTER</span>
+        <span class="sub-title">বাংলা টাইপিং ফাইটার</span>
+      </div>
+      <div class="header-controls">
+        <button id="soundToggleBtn" class="btn-icon" title="Toggle Sound" onclick="const muted = window.soundEngine.toggleMute(); this.innerText = muted ? '🔇' : '🔊';">🔊</button>
+        <div class="high-score-badge">🏆 HIGH SCORE: <span id="highScoreVal">0</span></div>
+      </div>
+    </header>
+
+    <!-- Fighting Arcade HUD -->
+    <div id="fightHUD" class="fight-hud" style="display: none;">
+      <!-- Player HUD -->
+      <div class="fighter-card player-card">
+        <div class="avatar-ring player-avatar">⚔️</div>
+        <div class="hud-details">
+          <div class="fighter-name">LATHIAL BIR <span class="tag">HERO</span></div>
+          <div class="hp-bar-outer">
+            <div id="playerHpFill" class="hp-bar-fill player-hp"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center Round Info -->
+      <div class="center-round-box">
+        <div class="timer-circle" id="roundTimerDisplay">90</div>
+        <div class="fight-vs-badge">VS</div>
+      </div>
+
+      <!-- Enemy HUD -->
+      <div class="fighter-card enemy-card">
+        <div class="hud-details right-align">
+          <div class="fighter-name"><span id="enemyNameDisplay">DAKAT SARDAR</span> <span class="tag enemy-tag">ENEMY</span></div>
+          <div class="hp-bar-outer">
+            <div id="enemyHpFill" class="hp-bar-fill enemy-hp"></div>
+          </div>
+        </div>
+        <div class="avatar-ring enemy-avatar">👹</div>
+      </div>
+    </div>
+
+    <!-- Canvas Fighting Arena -->
+    <div id="canvasContainer" class="canvas-container" onclick="if (window.gameEngine) window.gameEngine.focusTypingInput();">
+      <canvas id="gameCanvas"></canvas>
+      
+      <!-- Hidden/Visible Typing Input for Desktop & Mobile Focus Reliability -->
+      <input id="hiddenTypingInput" class="hidden-input-style" type="text" autocomplete="off" autocapitalize="none" spellcheck="false">
+
+      <!-- Target Word Floating Typing Box -->
+      <div id="wordTargetDisplay" class="word-target-box" style="display: none;">
+        <!-- Dynamic content injected by game.js -->
+      </div>
+
+      <!-- Threat Enemy Counter-Attack Bar -->
+      <div class="threat-bar-container">
+        <div class="threat-label">ENEMY ATTACK TIMER</div>
+        <div class="threat-bar-outer">
+          <div id="threatTimerFill" class="threat-bar-fill"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Realtime Stats Bar -->
+    <div class="stats-strip">
+      <div class="stat-box">
+        <span class="label">SPEED</span>
+        <span class="val"><span id="wpmVal">0</span> <small>WPM</small></span>
+      </div>
+      <div class="stat-box">
+        <span class="label">ACCURACY</span>
+        <span class="val" id="accuracyVal">100%</span>
+      </div>
+      <div class="stat-box">
+        <span class="label">COMBO</span>
+        <span class="val combo-val" id="comboVal">0x</span>
+      </div>
+      <div class="stat-box">
+        <span class="label">SCORE</span>
+        <span class="val score-val" id="scoreVal">0</span>
+      </div>
+    </div>
+    </div>
+
+    <!-- MULTIPLAYER LOBBY SIDEBAR -->
+    <aside class="multiplayer-sidebar">
+      <div class="sidebar-header">
+        <span class="status-pulse"></span>
+        <h2>ONLINE FIGHTERS (<span id="onlineCount">1</span>)</h2>
+      </div>
+      
+      <div class="user-card local-user">
+        <div class="user-avatar">👤</div>
+        <div class="user-details">
+          <div class="name-edit-wrapper">
+            <input type="text" id="localUsername" maxlength="15" value="Lathial" placeholder="Your Name">
+            <button id="editNameBtn" class="btn-edit" title="Change Name">✏️</button>
+          </div>
+          <span class="role-tag">YOU</span>
+        </div>
+      </div>
+      
+      <div class="online-players-section">
+        <h3>ACTIVE IN LOBBY</h3>
+        <ul id="onlinePlayersList" class="players-list">
+          <li class="empty-list-placeholder">Looking for fighters...</li>
+        </ul>
+      </div>
+
+      <!-- Server Address Config (For Cross-platform clients) -->
+      <div class="server-config-panel">
+        <label for="serverUrlInput">📡 SERVER HOST (সার্ভার এড্রেস):</label>
+        <div class="server-input-group">
+          <input type="text" id="serverUrlInput" placeholder="http://localhost:3000">
+          <button id="saveServerBtn" class="btn-sidebar-save" onclick="window.multiplayer.saveServerUrl()">Connect</button>
+        </div>
+      </div>
+    </aside>
+  </div>
+
+  <!-- START MENU MODAL -->
+  <div id="startMenuModal" class="modal-backdrop">
+    <div class="modal-card main-menu-card">
+      <div class="hero-badge">🇧🇩 BANGLADESH EDITION 🇧🇩</div>
+      <h1 class="menu-title">BANGLA TYPING FIGHTER</h1>
+      <p class="menu-subtitle">টাইপ করুন এবং লাঠিয়াল বীরের সাথে শত্রুদের পরাজিত করুন!</p>
+
+      <!-- Typing Mode Selection Panel -->
+      <div class="typing-mode-panel">
+        <label for="typingModeSelect">⌨️ TYPING MODE (টাইপিং মোড):</label>
+        <select id="typingModeSelect" class="select-premium" onchange="window.gameEngine.changeTypingMode(this.value)">
+          <option value="english">English Phonetic (ইংরেজি ফনেটিক - e.g. taka)</option>
+          <option value="bangla">Bangla Direct (বাংলা সরাসরি - e.g. টাকা)</option>
+        </select>
+      </div>
+
+      <div class="instructions-panel">
+        <h3>🎮 How to Play (কীভাবে খেলবেন):</h3>
+        <ul>
+          <li>🎯 <strong>Type the Words:</strong> স্ক্রিনে আসা শব্দগুলো কীবোর্ডে দ্রুত টাইপ করুন।</li>
+          <li>⚡ <strong>Execute Attacks:</strong> প্রতি অক্ষরের টাইপিংয়ে Jab Punch, Kick ও Lathi Slash হবে!</li>
+          <li>⏱️ <strong>Enemy Timer:</strong> টাইমার শেষ হওয়ার আগেই শব্দ টাইপ শেষ করুন।</li>
+          <li>🔥 <strong>Super Move:</strong> টাইপিং কম্বো ধরে রাখলে বিধ্বংসী <i>Flying Jump Kick</i> আনলক হবে!</li>
+        </ul>
+      </div>
+
+      <button class="btn-primary" onclick="window.gameEngine.startNewGame()">⚔️ START FIGHTING (গেম শুরু করুন)</button>
+    </div>
+  </div>
+
+  <!-- VICTORY ROUND WIN MODAL -->
+  <div id="victoryModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card win-card">
+      <div class="ko-banner win-banner">VICTORY - K.O.</div>
+      <h2>🎉 LEVEL <span id="winLevelVal">1</span> CLEARED!</h2>
+      <p>দারুণ টাইপিং স্পিড! শত্রু ধরাশায়ী হয়েছে!</p>
+
+      <div class="modal-stats-grid">
+        <div class="m-stat">
+          <span class="lbl">WPM Speed</span>
+          <span class="v" id="winWpmVal">0</span>
+        </div>
+        <div class="m-stat">
+          <span class="lbl">Accuracy</span>
+          <span class="v" id="winAccVal">100%</span>
+        </div>
+        <div class="m-stat">
+          <span class="lbl">Round Score</span>
+          <span class="v" id="winScoreVal">0</span>
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="window.gameEngine.nextLevel()">NEXT LEVEL ➔</button>
+    </div>
+  </div>
+
+  <!-- GAME OVER DEFEAT MODAL -->
+  <div id="gameOverModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card lose-card">
+      <div class="ko-banner lose-banner">DEFEAT - K.O.</div>
+      <h2>💀 GAME OVER</h2>
+      <p>শত্রু আপনাকে পরাজিত করেছে! আরও দ্রুত টাইপ করার চেষ্টা করুন।</p>
+
+      <div class="modal-stats-grid">
+        <div class="m-stat">
+          <span class="lbl">WPM Speed</span>
+          <span class="v" id="finalWpmVal">0</span>
+        </div>
+        <div class="m-stat">
+          <span class="lbl">Accuracy</span>
+          <span class="v" id="finalAccVal">100%</span>
+        </div>
+        <div class="m-stat">
+          <span class="lbl">Final Score</span>
+          <span class="v" id="finalScoreVal">0</span>
+        </div>
+      </div>
+
+      <button class="btn-primary" onclick="window.gameEngine.startNewGame()">🔄 RETRY (আবার চেষ্টা করুন)</button>
+    </div>
+  </div>
+
+  <!-- MULTIPLAYER MODALS -->
+  <!-- Select Duration Modal -->
+  <div id="durationModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card select-time-card">
+      <h2 class="neon-text">⚔️ SELECT MATCH TIME ⚔️</h2>
+      <p>যুদ্ধ কতক্ষণ চলবে তা সিলেক্ট করুন:</p>
+      <div class="duration-buttons">
+        <button class="btn-time" data-time="120">2 MINUTES (২ মিনিট)</button>
+        <button class="btn-time" data-time="300">5 MINUTES (৫ মিনিট)</button>
+        <button class="btn-time" data-time="600">10 MINUTES (১০ মিনিট)</button>
+      </div>
+      <button class="btn-secondary" onclick="multiplayer.closeDurationModal()">🏳️ CANCEL</button>
+    </div>
+  </div>
+
+  <!-- Waiting Modal -->
+  <div id="waitingModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card waiting-card">
+      <div class="spinner"></div>
+      <h2 class="pulsing-text">WAITING FOR OPPONENT...</h2>
+      <p>প্রতিপক্ষের উত্তরের জন্য অপেক্ষা করা হচ্ছে...</p>
+      <button class="btn-secondary" onclick="multiplayer.cancelChallenge()">🏳️ CANCEL CHALLENGE</button>
+    </div>
+  </div>
+
+  <!-- Incoming Challenge Modal -->
+  <div id="incomingChallengeModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card challenge-card">
+      <div class="challenge-icon-banner">⚔️ CHALLENGE RECEIVED ⚔️</div>
+      <h2><span id="challengerNameDisplay">Lathial</span> CHALLENGED YOU!</h2>
+      <p>টাইপিং ফাইট করতে চান? (<span id="challengeDurationDisplay">2</span> মিনিটের খেলা)</p>
+      <div class="challenge-actions">
+        <button id="acceptChallengeBtn" class="btn-primary-action">⚔️ ACCEPT (খেলুন)</button>
+        <button id="declineChallengeBtn" class="btn-danger-action">🏳️ DECLINE (না)</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- JavaScript Modules -->
+  <script src="/socket.io/socket.io.js"></script>
+  <script src="js/wordsData.js"></script>
+  <script src="js/audioEngine.js"></script>
+  <script src="js/fighter.js"></script>
+  <script src="js/typingEngine.js"></script>
+  <script src="js/multiplayer.js"></script>
+  <script src="js/game.js"></script>
+</body>
+</html>

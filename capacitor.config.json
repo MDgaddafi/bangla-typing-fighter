@@ -1,0 +1,8 @@
+{
+  "appId": "com.banglatypingfighter.app",
+  "appName": "Bangla Typing Fighter",
+  "webDir": "www",
+  "server": {
+    "androidScheme": "https"
+  }
+}
