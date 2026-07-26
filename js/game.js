@@ -78,6 +78,7 @@ class GameEngine {
     this.lastFrameTime = 0;
     this.attackSeqIndex = 0;
     this.slowMoTimer = 0;
+    this.isComposingBangla = false;
 
     // Multiplayer properties
     this.multiplayerMatchId = null;
@@ -103,46 +104,23 @@ class GameEngine {
 
     const inputElem = document.getElementById('hiddenTypingInput');
     if (inputElem) {
+      inputElem.addEventListener('compositionstart', () => {
+        this.isComposingBangla = true;
+      });
+
+      inputElem.addEventListener('compositionend', (e) => {
+        this.isComposingBangla = false;
+        if (this.typingMode === 'bangla') {
+          this.handleBanglaInput(e.target.value);
+        }
+      });
+
       inputElem.addEventListener('input', (e) => {
         if (this.typingMode === 'bangla') {
-          let val = e.target.value;
-          const targetWord = typingEngine.targetWord;
-          
-          // Auto-strip spaces if the target word does not contain spaces
-          // This prevents Spacebar commits in IMEs from triggering errors
-          if (targetWord && !targetWord.includes(' ')) {
-            const stripped = val.replace(/\s+/g, '');
-            if (stripped !== val) {
-              val = stripped;
-              e.target.value = val;
-            }
+          if (e.isComposing || this.isComposingBangla) {
+            return;
           }
-          
-          // Calculate matching characters
-          let matchCount = 0;
-          while (matchCount < val.length && matchCount < targetWord.length && val[matchCount] === targetWord[matchCount]) {
-            matchCount++;
-          }
-          
-          if (matchCount > typingEngine.typedIndex) {
-            const charsAdded = matchCount - typingEngine.typedIndex;
-            for (let i = 0; i < charsAdded; i++) {
-              const charToProcess = val[typingEngine.typedIndex];
-              this.processKeystroke(charToProcess);
-            }
-          } else if (val.length < typingEngine.typedIndex) {
-            // Sync typedIndex back on Backspace
-            typingEngine.typedIndex = val.length;
-          } else if (val.length > matchCount) {
-            // Flash red on typing error but DO NOT clear the composition context
-            soundEngine.playErrorSound();
-            this.player.shakeAmount = 8;
-            const targetElem = document.getElementById('wordTargetDisplay');
-            if (targetElem) {
-              targetElem.classList.add('shake-error');
-              setTimeout(() => targetElem.classList.remove('shake-error'), 300);
-            }
-          }
+          this.handleBanglaInput(e.target.value);
         } else {
           // English phonetic direct input fallback
           if (e.target.value.length > 0) {
@@ -168,6 +146,39 @@ class GameEngine {
     const inputElem = document.getElementById('hiddenTypingInput');
     if (inputElem && inputElem.focus) {
       inputElem.focus();
+    }
+  }
+
+  handleBanglaInput(val) {
+    val = (val || '').normalize('NFC').replace(/\u00A0/g, ' ');
+    const targetWord = typingEngine.targetWord;
+    if (!targetWord) return;
+
+    // Calculate matching characters code point by code point
+    let matchCount = 0;
+    while (matchCount < val.length && matchCount < targetWord.length && val[matchCount] === targetWord[matchCount]) {
+      matchCount++;
+    }
+
+    if (matchCount > typingEngine.typedIndex) {
+      const charsAdded = matchCount - typingEngine.typedIndex;
+      for (let i = 0; i < charsAdded; i++) {
+        const charToProcess = val[typingEngine.typedIndex];
+        this.processKeystroke(charToProcess);
+      }
+    } else if (val.length < typingEngine.typedIndex) {
+      // User pressed Backspace to delete characters
+      typingEngine.typedIndex = val.length;
+      this.renderTargetWord();
+    } else if (val.length > matchCount) {
+      // Typo
+      soundEngine.playErrorSound();
+      this.player.shakeAmount = 8;
+      const targetElem = document.getElementById('wordTargetDisplay');
+      if (targetElem) {
+        targetElem.classList.add('shake-error');
+        setTimeout(() => targetElem.classList.remove('shake-error'), 300);
+      }
     }
   }
 
@@ -201,9 +212,11 @@ class GameEngine {
   startRound() {
     this.state = 'FIGHTING';
     
+    const levelConfig = getLevelDifficulty(this.level);
+
     // Restore default Max HP for single player campaign
     if (this.player) this.player.maxHp = 100;
-    if (this.enemy) this.enemy.maxHp = 100;
+    if (this.enemy) this.enemy.maxHp = levelConfig.enemyHp;
 
     // Per-level round durations: increase to 2 minutes per level to allow comfortable typing
     const durationMatrix = { 1: 120, 2: 120, 3: 120, 4: 120, 5: 120, 6: 120, 7: 120 };
@@ -300,7 +313,7 @@ class GameEngine {
   }
 
   renderTargetWord() {
-    const container = document.getElementById('wordTargetDisplay');
+    const container = document.getElementById('wordTargetContent');
     if (!container || !typingEngine.targetWord) return;
 
     const word = typingEngine.targetWord;
@@ -325,25 +338,26 @@ class GameEngine {
       html += `<div class="super-move-badge">⚡ SUPER MOVE: ${obj.name || 'POWER'} ⚡</div>`;
     }
 
-    if (mode === 'bangla' && obj.bangla) {
-      html += `<div class="word-preview-large">${obj.bangla}</div>`;
-    }
-
-    html += `<div class="word-letters">`;
-    for (let i = 0; i < word.length; i++) {
-      if (i < typedIdx) {
-        html += `<span class="letter typed">${word[i]}</span>`;
-      } else if (i === typedIdx) {
-        html += `<span class="letter current">${word[i]}</span>`;
-      } else {
-        html += `<span class="letter untyped">${word[i]}</span>`;
-      }
-    }
-    html += `</div>`;
-
     if (mode === 'bangla') {
+      if (obj.bangla) {
+        html += `<div class="word-preview-large">${obj.bangla}</div>`;
+      }
       html += `<div class="word-meaning">⌨️ Pronunciation: <strong>${obj.word}</strong> - <i>${obj.hint || ''}</i></div>`;
     } else {
+      const letters = splitGraphemes(word);
+      html += `<div class="word-letters">`;
+      for (let i = 0; i < letters.length; i++) {
+        const letter = letters[i];
+        if (i < typedIdx) {
+          html += `<span class="letter typed">${letter}</span>`;
+        } else if (i === typedIdx) {
+          html += `<span class="letter current">${letter}</span>`;
+        } else {
+          html += `<span class="letter untyped">${letter}</span>`;
+        }
+      }
+      html += `</div>`;
+
       if (obj.bangla) {
         html += `<div class="word-meaning">🇧🇩 ${obj.bangla} - <i>${obj.hint || ''}</i></div>`;
       }
@@ -381,6 +395,8 @@ class GameEngine {
     const result = typingEngine.handleKeyPress(keyChar);
 
     if (result.status === 'char_correct') {
+      const levelConfig = getLevelDifficulty(this.level);
+
       // --- TYPING-DRIVEN FORWARD MARCH ENGINE ---
       if (this.state === 'MULTIPLAYER_FIGHTING') {
         const dist = this.enemy.x - this.player.x;
@@ -432,7 +448,7 @@ class GameEngine {
           this.handleMultiplayerKO(true); // Local player scored KO
         }
       } else {
-        this.enemy.takeDamage(6);
+        this.enemy.takeDamage(levelConfig.playerCharDamage);
       }
 
       this.renderTargetWord();
@@ -451,15 +467,17 @@ class GameEngine {
       soundEngine.playJumpSound();
       this.player.jump();
       
+      const levelConfig = getLevelDifficulty(this.level);
+
       setTimeout(() => {
         soundEngine.playKickSound();
         this.player.triggerAction('jump_kick');
         
-        let dmg = 35;
+        let dmg = levelConfig.playerWordDamage;
         if (result.isSuperMove) {
           soundEngine.playSuperMoveSound();
-          dmg = 55;
-          this.enemy.takeDamage(55);
+          dmg = levelConfig.playerWordDamage + 15;
+          this.enemy.takeDamage(dmg);
           this.player.shakeAmount = 22;
           this.enemy.shakeAmount = 30;
           this.spawnSparks(this.enemy.x, this.enemy.y, '#ff0055', 35);
@@ -467,7 +485,7 @@ class GameEngine {
           this.score += 250;
         } else {
           soundEngine.playAttackSlashSound();
-          this.enemy.takeDamage(35);
+          this.enemy.takeDamage(levelConfig.playerWordDamage);
           this.enemy.shakeAmount = 15;
           this.spawnSparks(this.enemy.x, this.enemy.y, '#06d6a0', 20);
           this.spawnHypeText("PERFECT COMBO!", this.enemy.x, this.enemy.y - 90, '#52b788');
@@ -533,13 +551,9 @@ class GameEngine {
     }
 
     if (this.botActionCooldown <= 0) {
-      // Softer early-level AI: increase cooldowns (slower actions) for levels 1-3
-      const speedMatrix = { 1: 5.5, 2: 5.0, 3: 4.2, 4: 3.0, 5: 2.4, 6: 1.6, 7: 1.1 };
-      this.botActionCooldown = speedMatrix[this.level] || 3.0;
-
-      // Reduce damage on early levels to make progression smoother
-      const damageMatrix = { 1: 2, 2: 3, 3: 5, 4: 7, 5: 9, 6: 12, 7: 15 };
-      const dmg = damageMatrix[this.level] || 5;
+      const levelConfig = getLevelDifficulty(this.level);
+      this.botActionCooldown = levelConfig.enemyAttackCooldown;
+      const dmg = levelConfig.enemyDamage;
 
       const randAction = Math.random();
       if (randAction < 0.35) {
@@ -1001,13 +1015,11 @@ class GameEngine {
     if (this.state === 'FIGHTING') {
       this.updateEnemyAI(dt);
 
+      const levelConfig = getLevelDifficulty(this.level);
       typingEngine.enemyTimer -= dt;
       if (typingEngine.enemyTimer <= 0) {
         this.enemy.triggerAction('slash');
-        // Match damage values with updateEnemyAI to keep consistency
-        const damageMatrix = { 1: 2, 2: 3, 3: 5, 4: 7, 5: 9, 6: 12, 7: 15 };
-        const dmg = damageMatrix[this.level] || 5;
-        this.player.takeDamage(dmg);
+        this.player.takeDamage(levelConfig.enemyDamage);
         typingEngine.enemyTimer = typingEngine.maxEnemyTimer;
       }
       this.updateHUD();

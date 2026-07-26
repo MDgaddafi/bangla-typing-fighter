@@ -2,10 +2,36 @@
  * Bangla Typing Fighter - Typing Engine & Beginner Friendly Timer Matrix
  */
 
+const LEVEL_DIFFICULTY = {
+  1: { enemyTimer: 12.0, enemyAttackCooldown: 6.0, enemyDamage: 2, playerCharDamage: 6, playerWordDamage: 32, enemyHp: 100 },
+  2: { enemyTimer: 10.0, enemyAttackCooldown: 5.0, enemyDamage: 3, playerCharDamage: 6, playerWordDamage: 34, enemyHp: 100 },
+  3: { enemyTimer: 8.5, enemyAttackCooldown: 4.2, enemyDamage: 4, playerCharDamage: 7, playerWordDamage: 36, enemyHp: 100 },
+  4: { enemyTimer: 7.0, enemyAttackCooldown: 3.6, enemyDamage: 5, playerCharDamage: 7, playerWordDamage: 38, enemyHp: 100 },
+  5: { enemyTimer: 6.0, enemyAttackCooldown: 3.1, enemyDamage: 6, playerCharDamage: 7, playerWordDamage: 40, enemyHp: 100 },
+  6: { enemyTimer: 4.5, enemyAttackCooldown: 2.4, enemyDamage: 7, playerCharDamage: 8, playerWordDamage: 42, enemyHp: 110 },
+  7: { enemyTimer: 3.2, enemyAttackCooldown: 1.8, enemyDamage: 8, playerCharDamage: 8, playerWordDamage: 45, enemyHp: 115 }
+};
+
+function getLevelDifficulty(level) {
+  const normalizedLevel = Math.min(7, Math.max(1, Number(level) || 1));
+  return LEVEL_DIFFICULTY[normalizedLevel] || LEVEL_DIFFICULTY[1];
+}
+
+function splitGraphemes(text) {
+  if (!text) return [];
+  try {
+    return Array.from(text.normalize('NFC').matchAll(/(\P{M}\p{M}*)/gu), match => match[0]);
+  } catch (err) {
+    // Fallback for browsers without Unicode property escapes
+    return Array.from(text.normalize('NFC'));
+  }
+}
+
 class TypingEngine {
   constructor() {
     this.currentWordObj = null;
     this.targetWord = "";
+    this.targetLetters = [];
     this.typedIndex = 0;
     
     this.totalKeystrokes = 0;
@@ -35,26 +61,19 @@ class TypingEngine {
   }
 
   setEnemyTimerByLevel(level) {
-    const timerMatrix = {
-      1: 12.0, // Ultra Generous Easy (12s)
-      2: 10.0, // Very Easy (10s)
-      3: 8.5,  // Easy (8.5s)
-      4: 7.0,  // Casual (7s)
-      5: 5.5,  // Moderate (5.5s)
-      6: 4.0,  // Fast (4s)
-      7: 3.0   // Final Boss (3s)
-    };
-    this.maxEnemyTimer = timerMatrix[level] || 8.0;
+    const config = getLevelDifficulty(level);
+    this.maxEnemyTimer = config.enemyTimer;
     this.enemyTimer = this.maxEnemyTimer;
   }
 
   setNextWord(wordObj, isSuper = false, mode = 'english') {
     this.currentWordObj = wordObj;
     if (mode === 'bangla' && wordObj && wordObj.bangla) {
-      this.targetWord = wordObj.bangla.trim();
+      this.targetWord = wordObj.bangla.trim().normalize('NFC');
     } else {
       this.targetWord = (wordObj && wordObj.word) ? wordObj.word.toLowerCase() : "chaa";
     }
+    this.targetLetters = Array.from(this.targetWord);
     this.typedIndex = 0;
     this.isSuperMoveActive = isSuper;
     this.enemyTimer = this.maxEnemyTimer;
@@ -63,7 +82,7 @@ class TypingEngine {
   handleKeyPress(key) {
     if (!this.targetWord) return { status: 'none' };
 
-    const expectedChar = this.targetWord[this.typedIndex];
+    const expectedChar = this.targetLetters[this.typedIndex] || this.targetWord[this.typedIndex];
     const inputKey = key.toLowerCase();
 
     this.totalKeystrokes++;
@@ -76,7 +95,7 @@ class TypingEngine {
         this.maxCombo = this.comboCount;
       }
 
-      if (this.typedIndex >= this.targetWord.length) {
+      if (this.typedIndex >= this.targetLetters.length) {
         this.wordsCompleted++;
         const isSuper = this.isSuperMoveActive;
         this.isSuperMoveActive = false;
@@ -120,3 +139,5 @@ class TypingEngine {
 
 const typingEngine = new TypingEngine();
 window.typingEngine = typingEngine;
+window.splitGraphemes = splitGraphemes;
+window.getLevelDifficulty = getLevelDifficulty;

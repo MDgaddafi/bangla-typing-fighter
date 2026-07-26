@@ -1,5 +1,5 @@
 /**
- * Bangla Typing Fighter - Word Dictionary by 7 Campaign Levels
+ * Bangla Typing Fighter - Word Dictionary by 7 Campaign Levels (Single Words Only)
  */
 
 const WORDS_DATABASE = {
@@ -44,28 +44,28 @@ const WORDS_DATABASE = {
   ],
 
   level6: [
-    { word: "nakshikantha", bangla: "নকশী কাঁথা", category: "Craft", hint: "Embroidered quilt" },
+    { word: "nakshi", bangla: "নকশী", category: "Craft", hint: "Embroidered pattern" },
     { word: "muktijoddha", bangla: "মুক্তিযোদ্ধা", category: "Hero", hint: "Freedom Fighter" },
     { word: "ekushey", bangla: "একুশে", category: "History", hint: "Language Movement" },
-    { word: "panamcity", bangla: "পানাম সিটি", category: "History", hint: "Historic town" }
+    { word: "panam", bangla: "পানাম", category: "History", hint: "Historic town" }
   ],
 
   level7: [
-    { word: "amarsonar", bangla: "আমার সোনার বাংলা", category: "Anthem", hint: "National anthem" },
-    { word: "joybangla", bangla: "জয় বাংলা", category: "Slogan", hint: "Historic victory slogan" },
-    { word: "shahidminar", bangla: "শহীদ মিনার", category: "Monument", hint: "Language memorial" },
+    { word: "sonar", bangla: "সোনার", category: "Anthem", hint: "Golden" },
+    { word: "joy", bangla: "জয়", category: "Slogan", hint: "Victory" },
+    { word: "shahid", bangla: "শহীদ", category: "Monument", hint: "Martyr" },
     { word: "smritisoudho", bangla: "স্মৃতিসৌধ", category: "Monument", hint: "Martyrs memorial" },
-    { word: "bengaltiger", bangla: "রয়্যাল বেঙ্গল টাইগার", category: "Wildlife", hint: "King of Sundarbans" },
-    { word: "ahsanmanzil", bangla: "আহসান মঞ্জিল", category: "Landmark", hint: "Pink palace" },
-    { word: "digitalbangladesh", bangla: "ডিজিটাল বাংলাদেশ", category: "Tech", hint: "Tech vision" },
-    { word: "smartbangladesh", bangla: "স্মার্ট বাংলাদেশ", category: "Future", hint: "Future vision" }
+    { word: "tiger", bangla: "টাইগার", category: "Wildlife", hint: "Bengal Tiger" },
+    { word: "manzil", bangla: "মঞ্জিল", category: "Landmark", hint: "Pink palace" },
+    { word: "digital", bangla: "ডিজিটাল", category: "Tech", hint: "Tech vision" },
+    { word: "smart", bangla: "স্মার্ট", category: "Future", hint: "Future vision" }
   ],
 
   superMoves: [
-    { word: "lathialstrike", damage: 40, bangla: "লাঠিয়াল স্ট্রাইক", name: "BAMBOO CYCLONE" },
-    { word: "tigerrage", damage: 50, bangla: "টাইগার রেজ", name: "SUNDARBAN ROAR" },
-    { word: "padmawave", damage: 45, bangla: "পদ্মা ওয়েভ", name: "TSUNAMI SLASH" },
-    { word: "freedombir", damage: 60, bangla: "বীর মুক্তি", name: "HEROIC FINISHER" }
+    { word: "lathial", damage: 40, bangla: "লাঠিয়াল", name: "BAMBOO CYCLONE" },
+    { word: "tiger", damage: 50, bangla: "টাইগার", name: "SUNDARBAN ROAR" },
+    { word: "padma", damage: 45, bangla: "পদ্মা", name: "TSUNAMI SLASH" },
+    { word: "bir", damage: 60, bangla: "বীর", name: "HEROIC FINISHER" }
   ]
 };
 
@@ -80,3 +80,5 @@ function getRandomSuperMove() {
   const index = Math.floor(Math.random() * WORDS_DATABASE.superMoves.length);
   return WORDS_DATABASE.superMoves[index];
 }
+
+

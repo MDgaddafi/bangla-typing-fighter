@@ -12,6 +12,7 @@
   --cyan-accent: #4cc9f0;
   --font-main: 'Outfit', sans-serif;
   --font-arcade: 'Rajdhani', sans-serif;
+  --font-bengali: 'Noto Sans Bengali', 'Hind Siliguri', 'SolaimanLipi', 'Mukta Mahee', var(--font-main);
 }
 
 * {
@@ -277,11 +278,12 @@ canvas {
   font-size: 34px;
   font-weight: 800;
   letter-spacing: 3px;
-  font-family: var(--font-arcade);
+  font-family: var(--font-bengali);
   margin-bottom: 4px;
   display: inline-block;
-  word-break: break-all;
+  word-break: break-word;
   overflow-wrap: anywhere;
+  line-height: 1.2;
 }
 
 .letter.typed {
@@ -1033,6 +1035,7 @@ canvas {
   text-align: center;
   letter-spacing: 2px;
   animation: float-pulse 2s infinite ease-in-out;
+  font-family: var(--font-bengali);
 }
 
 @keyframes float-pulse {
@@ -1053,26 +1056,31 @@ canvas {
 }
 
 .visible-input-bangla {
-  position: absolute !important;
+  position: relative !important;
   opacity: 1 !important;
   pointer-events: auto !important;
-  bottom: 12px !important;
-  left: 50% !important;
-  transform: translateX(-50%) !important;
-  top: auto !important;
-  width: 280px !important;
-  background: rgba(16, 18, 29, 0.85) !important;
+  width: 100% !important;
+  max-width: 240px !important;
+  box-sizing: border-box !important;
+  background: rgba(16, 18, 29, 0.95) !important;
   border: 2px solid rgba(255, 255, 255, 0.15) !important;
   color: #fff !important;
-  padding: 8px 16px !important;
+  padding: 8px 12px !important;
   border-radius: 10px !important;
   font-size: 16px !important;
   font-weight: 700 !important;
   text-align: center !important;
   outline: none !important;
   box-shadow: 0 0 15px rgba(255, 209, 102, 0.3) !important;
-  z-index: 10 !important;
+  z-index: 12 !important;
   transition: all 0.2s !important;
+  font-family: var(--font-bengali) !important;
+  line-height: 1.3 !important;
+  margin: 10px auto 2px !important;
+}
+
+.visible-input-bangla::placeholder {
+  color: rgba(255, 255, 255, 0.5) !important;
 }
 
 .visible-input-bangla:focus {

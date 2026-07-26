@@ -65,13 +65,11 @@
     <!-- Canvas Fighting Arena -->
     <div id="canvasContainer" class="canvas-container" onclick="if (window.gameEngine) window.gameEngine.focusTypingInput();">
       <canvas id="gameCanvas"></canvas>
-      
-      <!-- Hidden/Visible Typing Input for Desktop & Mobile Focus Reliability -->
-      <input id="hiddenTypingInput" class="hidden-input-style" type="text" autocomplete="off" autocapitalize="none" spellcheck="false">
 
       <!-- Target Word Floating Typing Box -->
       <div id="wordTargetDisplay" class="word-target-box" style="display: none;">
-        <!-- Dynamic content injected by game.js -->
+        <div id="wordTargetContent"></div>
+        <input id="hiddenTypingInput" class="hidden-input-style" type="text" autocomplete="off" autocorrect="off" autocapitalize="none" spellcheck="false" inputmode="text" lang="bn" placeholder="এখানে টাইপ করুন...">
       </div>
 
       <!-- Threat Enemy Counter-Attack Bar -->
