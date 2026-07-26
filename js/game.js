@@ -205,8 +205,9 @@ class GameEngine {
     if (this.player) this.player.maxHp = 100;
     if (this.enemy) this.enemy.maxHp = 100;
 
-    const durationMatrix = { 1: 30, 2: 35, 3: 40, 4: 45, 5: 50, 6: 55, 7: 60 };
-    this.roundTime = durationMatrix[this.level] || 30;
+    // Per-level round durations: increase to 2 minutes per level to allow comfortable typing
+    const durationMatrix = { 1: 120, 2: 120, 3: 120, 4: 120, 5: 120, 6: 120, 7: 120 };
+    this.roundTime = durationMatrix[this.level] || 120;
     
     this.enemiesDefeatedInRound = 0;
     this.attackSeqIndex = 0;
@@ -243,13 +244,15 @@ class GameEngine {
         if (timerElem) timerElem.innerText = this.roundTime;
 
         if (this.roundTime <= 0) {
-          clearInterval(this.roundTimerInterval);
-          if (this.player.hp > 0) {
-            this.triggerRoundWin();
-          } else {
-            this.triggerGameOver();
-          }
-        }
+              clearInterval(this.roundTimerInterval);
+              // Only grant a round win on timeout if the player actually defeated at least
+              // one enemy in the round. Prevents passive wins when player does not engage.
+              if (this.player.hp > 0 && this.enemiesDefeatedInRound > 0) {
+                this.triggerRoundWin();
+              } else {
+                this.triggerGameOver();
+              }
+            }
       }
     }, 1000);
 
@@ -352,6 +355,13 @@ class GameEngine {
   onKeyDown(e) {
     if (this.state !== 'FIGHTING' && this.state !== 'MULTIPLAYER_FIGHTING') return;
     if (this.isKOPause) return; // Block input during KO transition
+
+    // If the user is editing any input (like the username field), do not process
+    // global game key events so typing goes into the focused input element.
+    const active = document.activeElement;
+    if (active && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA' || active.isContentEditable)) {
+      return;
+    }
 
     // Bangla layouts require keyboard input to hit the hidden input field for IME composition
     if (this.typingMode === 'bangla') return;
@@ -523,10 +533,12 @@ class GameEngine {
     }
 
     if (this.botActionCooldown <= 0) {
-      const speedMatrix = { 1: 4.5, 2: 3.8, 3: 3.0, 4: 2.5, 5: 2.0, 6: 1.5, 7: 1.1 };
+      // Softer early-level AI: increase cooldowns (slower actions) for levels 1-3
+      const speedMatrix = { 1: 5.5, 2: 5.0, 3: 4.2, 4: 3.0, 5: 2.4, 6: 1.6, 7: 1.1 };
       this.botActionCooldown = speedMatrix[this.level] || 3.0;
 
-      const damageMatrix = { 1: 3, 2: 4, 3: 6, 4: 8, 5: 10, 6: 13, 7: 16 };
+      // Reduce damage on early levels to make progression smoother
+      const damageMatrix = { 1: 2, 2: 3, 3: 5, 4: 7, 5: 9, 6: 12, 7: 15 };
       const dmg = damageMatrix[this.level] || 5;
 
       const randAction = Math.random();
@@ -641,6 +653,17 @@ class GameEngine {
     document.getElementById('finalWpmVal').innerText = typingEngine.getWPM();
     document.getElementById('finalAccVal').innerText = typingEngine.getAccuracy() + '%';
     document.getElementById('finalScoreVal').innerText = this.score;
+    // Configure retry button to restart the same level (instead of full campaign)
+    const btnRetry = document.querySelector('#gameOverModal .btn-primary');
+    if (btnRetry) {
+      btnRetry.innerText = 'RETRY LEVEL (পুনরায় এই লেভেল)';
+      btnRetry.onclick = () => {
+        document.getElementById('gameOverModal').style.display = 'none';
+        // Restart the round at the current level
+        this.startRound();
+      };
+    }
+
     document.getElementById('gameOverModal').style.display = 'flex';
   }
 
@@ -978,7 +1001,8 @@ class GameEngine {
       typingEngine.enemyTimer -= dt;
       if (typingEngine.enemyTimer <= 0) {
         this.enemy.triggerAction('slash');
-        const damageMatrix = { 1: 3, 2: 4, 3: 6, 4: 8, 5: 10, 6: 13, 7: 16 };
+        // Match damage values with updateEnemyAI to keep consistency
+        const damageMatrix = { 1: 2, 2: 3, 3: 5, 4: 7, 5: 9, 6: 12, 7: 15 };
         const dmg = damageMatrix[this.level] || 5;
         this.player.takeDamage(dmg);
         typingEngine.enemyTimer = typingEngine.maxEnemyTimer;
@@ -993,6 +1017,24 @@ class GameEngine {
 
       this.player.update();
       this.enemy.update();
+
+        // Clamp fighter positions to visible canvas bounds to prevent them from moving off-screen
+        if (this.canvas) {
+          const cw = this.canvas.width;
+          const minPlayerX = cw * 0.06; // left margin
+          const maxPlayerX = cw * 0.86; // right limit for player
+          const minEnemyX = cw * 0.14;
+          const maxEnemyX = cw * 0.96;
+
+          this.player.x = Math.max(minPlayerX, Math.min(this.player.x, maxPlayerX));
+          this.enemy.x = Math.max(minEnemyX, Math.min(this.enemy.x, maxEnemyX));
+
+          // Ensure the enemy always stays to the right of the player with a small gap
+          const minGap = 90;
+          if (this.enemy.x - this.player.x < minGap) {
+            this.enemy.x = Math.min(maxEnemyX, this.player.x + minGap);
+          }
+        }
 
       this.player.draw(this.ctx, this.stageTheme);
       this.enemy.draw(this.ctx, this.stageTheme);

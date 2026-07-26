@@ -15,6 +15,8 @@ class MultiplayerController {
     this.durationModal = null;
     this.waitingModal = null;
     this.incomingChallengeModal = null;
+    this.isEditingName = false;
+    this.lastAcceptedName = '';
     
     // Bind methods to preserve context
     this.handleLobbyUpdate = this.handleLobbyUpdate.bind(this);
@@ -49,29 +51,70 @@ class MultiplayerController {
 
     // Register input listeners
     if (this.localUsernameInput) {
+      // Start with the input in read-only mode to avoid accidental edits
+      this.localUsernameInput.readOnly = true;
+      this.localUsernameInput.setAttribute('tabindex', '0');
       // Load name from local storage if available
       const savedName = localStorage.getItem('btf_multiplayer_name');
       if (savedName) {
         this.localUsernameInput.value = savedName;
-        // Wait a small delay to sync with server after connection
-        setTimeout(() => this.socket.emit('change_name', savedName), 500);
+        // Ask server to reserve this name (avoid race that allows duplicates)
+        setTimeout(() => this.socket.emit('request_name', savedName), 500);
       }
 
+      // When input changes (commit via Enter/blur), emit name change to server
       this.localUsernameInput.addEventListener('change', (e) => {
+        this.isEditingName = false;
         const newName = e.target.value.trim();
         if (newName.length > 0) {
-          localStorage.setItem('btf_multiplayer_name', newName);
+          // Do NOT persist locally until server accepts the name
           this.socket.emit('change_name', newName);
         }
+      });
+
+      this.localUsernameInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          // commit and blur to trigger change event
+          this.localUsernameInput.blur();
+        }
+      });
+
+      this.localUsernameInput.addEventListener('focus', () => {
+        this.isEditingName = true;
+      });
+
+      this.localUsernameInput.addEventListener('blur', () => {
+        // small delay to allow change event to fire first
+        setTimeout(() => { this.isEditingName = false; }, 50);
       });
       
       const editNameBtn = document.getElementById('editNameBtn');
       if (editNameBtn) {
         editNameBtn.addEventListener('click', () => {
+          // Enable editing explicitly so focus and typing reliably work
+          this.localUsernameInput.readOnly = false;
           this.localUsernameInput.focus();
           this.localUsernameInput.select();
+          this.isEditingName = true;
         });
       }
+
+      // When user types, mark editing state
+      this.localUsernameInput.addEventListener('input', () => {
+        this.isEditingName = true;
+      });
+
+      // On blur, commit name (server will accept/reject); keep input locked after blur
+      this.localUsernameInput.addEventListener('blur', () => {
+        const newName = this.localUsernameInput.value.trim();
+        if (newName.length > 0) {
+          this.socket.emit('change_name', newName);
+        }
+        this.localUsernameInput.readOnly = true;
+        // small delay to clear editing flag after name sync
+        setTimeout(() => { this.isEditingName = false; }, 50);
+      });
     }
 
     // Duration modal buttons list
@@ -106,6 +149,8 @@ class MultiplayerController {
     this.socket.off('match_start');
     this.socket.off('opponent_action');
     this.socket.off('opponent_left');
+    this.socket.off('name_accepted');
+    this.socket.off('name_rejected');
 
     // Socket Observers
     this.socket.on('lobby_update', this.handleLobbyUpdate);
@@ -113,6 +158,49 @@ class MultiplayerController {
     this.socket.on('challenge_cancelled', this.handleChallengeCancelled);
     this.socket.on('challenge_declined', this.handleChallengeDeclined);
     this.socket.on('match_start', this.handleMatchStart);
+    // Server responses for name changes
+    this.socket.on('name_accepted', (data) => {
+      const name = data && data.name ? data.name : '';
+      if (name && this.localUsernameInput) {
+        // Persist accepted name locally and lock input
+        localStorage.setItem('btf_multiplayer_name', name);
+        this.localUsernameInput.value = name;
+        this.localUsernameInput.readOnly = true;
+        this.isEditingName = false;
+        this.lastAcceptedName = name;
+        // Clear any error state
+        this.localUsernameInput.classList.remove('name-error');
+        const msgEl = document.getElementById('nameErrorMsg');
+        if (msgEl && msgEl.parentNode) msgEl.parentNode.removeChild(msgEl);
+      }
+    });
+
+    this.socket.on('name_rejected', (data) => {
+      const reason = data && data.reason ? data.reason : 'Rejected';
+      // Revert to last accepted name (or saved name) and allow user to pick another
+      const fallback = this.lastAcceptedName || localStorage.getItem('btf_multiplayer_name') || '';
+      if (this.localUsernameInput) {
+        this.localUsernameInput.value = fallback;
+        this.localUsernameInput.readOnly = false;
+        this.localUsernameInput.focus();
+        this.localUsernameInput.select();
+        this.isEditingName = true;
+      }
+      // Show inline error message and highlight input
+      if (this.localUsernameInput) {
+        this.localUsernameInput.classList.add('name-error');
+        let msg = document.getElementById('nameErrorMsg');
+        if (!msg) {
+          msg = document.createElement('div');
+          msg.id = 'nameErrorMsg';
+          msg.className = 'name-error-msg';
+          this.localUsernameInput.parentNode.appendChild(msg);
+        }
+        msg.innerText = `Name not accepted: ${reason}`;
+      } else {
+        alert(`Name not accepted: ${reason}`);
+      }
+    });
     
     this.socket.on('opponent_action', (data) => {
       if (window.gameEngine && window.gameEngine.state === 'MULTIPLAYER_FIGHTING') {
@@ -138,8 +226,20 @@ class MultiplayerController {
 
     // Sync local username displayed if server has a different default
     const me = players.find(p => p.id === myId);
-    if (me && this.localUsernameInput && document.activeElement !== this.localUsernameInput) {
-      this.localUsernameInput.value = me.name;
+    // Only sync server name into the input when user is not actively editing it
+    if (me && this.localUsernameInput && !this.isEditingName && document.activeElement !== this.localUsernameInput) {
+      // If the user has a locally saved preferred name, prefer it and re-sync to server
+      const savedName = localStorage.getItem('btf_multiplayer_name');
+        if (savedName && savedName !== me.name) {
+        // Apply locally preferred name to input and ask server to reserve it
+        this.localUsernameInput.value = savedName;
+        setTimeout(() => {
+          this.socket.emit('request_name', savedName);
+        }, 250);
+      } else {
+        this.localUsernameInput.value = me.name;
+        this.lastAcceptedName = me.name;
+      }
     }
 
     // Update total online count badge

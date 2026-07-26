@@ -87,13 +87,39 @@ io.on('connection', (socket) => {
   // Broadcast current players to the lobby
   io.emit('lobby_update', Object.values(players));
 
+  // Handle request to reserve/apply a desired name (checks availability first)
+  socket.on('request_name', (newName) => {
+    if (newName && newName.trim().length > 0) {
+      const formattedName = newName.trim().substring(0, 15);
+      const duplicate = Object.values(players).some(p => p.id !== socket.id && p.name && p.name.toLowerCase() === formattedName.toLowerCase());
+      if (duplicate) {
+        socket.emit('name_unavailable', { reason: 'Name already in use' });
+      } else {
+        if (players[socket.id]) {
+          players[socket.id].name = formattedName;
+          io.emit('lobby_update', Object.values(players));
+          socket.emit('name_accepted', { name: formattedName });
+        }
+      }
+    }
+  });
+
   // Handle name change
   socket.on('change_name', (newName) => {
     if (newName && newName.trim().length > 0) {
       const formattedName = newName.trim().substring(0, 15);
-      if (players[socket.id]) {
-        players[socket.id].name = formattedName;
-        io.emit('lobby_update', Object.values(players));
+
+      // Check for duplicate (case-insensitive) among other connected players
+      const duplicate = Object.values(players).some(p => p.id !== socket.id && p.name && p.name.toLowerCase() === formattedName.toLowerCase());
+      if (duplicate) {
+        socket.emit('name_rejected', { reason: 'Name already in use' });
+      } else {
+        if (players[socket.id]) {
+          players[socket.id].name = formattedName;
+          io.emit('lobby_update', Object.values(players));
+          // Inform client that name was accepted
+          socket.emit('name_accepted', { name: formattedName });
+        }
       }
     }
   });
