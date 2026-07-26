@@ -137,6 +137,12 @@ body {
   align-items: center;
   gap: 10px;
   flex: 1;
+  min-width: 0;
+}
+
+.hud-details {
+  flex: 1;
+  min-width: 0;
 }
 
 .right-align {
@@ -164,6 +170,14 @@ body {
   font-size: 15px;
   font-weight: 700;
   margin-bottom: 4px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.enemy-card .fighter-name {
+  justify-content: flex-end;
 }
 
 .tag {
@@ -176,6 +190,10 @@ body {
 
 .enemy-tag {
   background: var(--bd-red);
+}
+
+.enemy-card .hp-bar-outer {
+  margin-left: auto;
 }
 
 .hp-bar-outer {
@@ -573,6 +591,87 @@ canvas {
   }
   .modal-card {
     padding: 22px 18px;
+  }
+
+  /* Responsive Fighting HUD */
+  .fight-hud {
+    padding: 8px 10px;
+  }
+  
+  .fighter-card {
+    gap: 6px;
+  }
+  
+  .avatar-ring {
+    width: 32px;
+    height: 32px;
+    font-size: 16px;
+    border-width: 1.5px;
+  }
+  
+  .fighter-name {
+    font-size: 12px;
+    margin-bottom: 2px;
+    gap: 4px;
+  }
+  
+  .tag {
+    font-size: 8px;
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  
+  .hp-bar-outer {
+    height: 12px;
+  }
+  
+  .center-round-box {
+    margin: 0 8px;
+  }
+  
+  .timer-circle {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+    border-width: 2px;
+  }
+  
+  .fight-vs-badge {
+    font-size: 9px;
+  }
+}
+
+@media (max-width: 480px) {
+  .fight-hud {
+    padding: 6px 8px;
+  }
+  
+  .avatar-ring {
+    display: none; /* Hide avatars on very narrow screens for maximum width */
+  }
+  
+  .fighter-card {
+    gap: 0;
+  }
+  
+  .fighter-name {
+    font-size: 11px;
+    gap: 2px;
+  }
+  
+  .hp-bar-outer {
+    height: 10px;
+    border-width: 1px;
+  }
+  
+  .center-round-box {
+    margin: 0 4px;
+  }
+  
+  .timer-circle {
+    width: 32px;
+    height: 32px;
+    font-size: 14px;
   }
 }
 

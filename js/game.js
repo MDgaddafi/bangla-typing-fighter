@@ -53,6 +53,60 @@ class HypeText {
   }
 }
 
+class Projectile {
+  constructor(startX, startY, targetX, targetY, color, onHit) {
+    this.x = startX;
+    this.y = startY;
+    this.targetX = targetX;
+    this.targetY = targetY;
+    this.vx = 22; // Speed of fireball
+    this.color = color;
+    this.onHit = onHit;
+    this.life = 1.0;
+    this.size = 14;
+    this.trail = [];
+  }
+  update() {
+    // Save trail for flame tail rendering
+    this.trail.push({ x: this.x, y: this.y });
+    if (this.trail.length > 5) this.trail.shift();
+
+    this.x += this.vx;
+    if (this.x >= this.targetX) {
+      this.life = 0;
+      this.onHit();
+    }
+  }
+  draw(ctx) {
+    if (this.life <= 0) return;
+    
+    // Draw fire tail
+    for (let i = 0; i < this.trail.length; i++) {
+      const alpha = (i / this.trail.length) * 0.4;
+      ctx.fillStyle = `rgba(255, 85, 0, ${alpha})`;
+      ctx.beginPath();
+      ctx.arc(this.trail[i].x, this.trail[i].y, this.size * (i / this.trail.length), 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.save();
+    // Fireball core with bright orange glow (আগুন ছুড়ে মারা)
+    ctx.shadowBlur = 18;
+    ctx.shadowColor = this.color;
+    ctx.fillStyle = this.color;
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Bright yellow center
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    ctx.arc(this.x, this.y, this.size * 0.5, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+}
+
 class GameEngine {
   constructor() {
     this.canvas = null;
@@ -64,11 +118,13 @@ class GameEngine {
     this.score = 0;
     this.highScore = parseInt(localStorage.getItem('btf_highscore') || '0', 10);
     this.stageTheme = 1;
+    this.fightDirection = 'right'; // Default direction is rightwards
     
     this.player = null;
     this.enemy = null;
     this.particles = [];
     this.hypeTexts = [];
+    this.projectiles = []; // Projectile array for fireball shooting
     
     this.roundTime = 30;
     this.roundTimerInterval = null;
@@ -206,6 +262,7 @@ class GameEngine {
     this.level = 1;
     this.score = 0;
     this.stageTheme = 1;
+    resetWordQueues(); // Fresh shuffled word pool for the new game
     this.startRound();
   }
 
@@ -225,6 +282,10 @@ class GameEngine {
     this.enemiesDefeatedInRound = 0;
     this.attackSeqIndex = 0;
     this.slowMoTimer = 0;
+    this.fightDirection = 'right';
+    this.particles = [];
+    this.hypeTexts = [];
+    this.projectiles = [];
     
     this.focusTypingInput();
 
@@ -292,8 +353,17 @@ class GameEngine {
     // Reset Enemy Position
     const canvasW = this.canvas ? this.canvas.width : 900;
     this.enemy.reset(canvasW * 0.78, 270);
+    this.fightDirection = 'right'; // Reset movement direction to right for the new wave
     this.loadNextWord();
     this.updateHUD();
+  }
+
+  triggerGroundSlam(fighter) {
+    if (soundEngine) soundEngine.playKickSound();
+    this.spawnSparks(fighter.x, fighter.y + 70, '#ffd166', 30);
+    this.player.shakeAmount = 25;
+    fighter.shakeAmount = 35;
+    this.spawnHypeText("💥 SEISMIC SLAM!! 💥", fighter.x, fighter.y - 70, '#ef233c');
   }
 
   loadNextWord() {
@@ -404,18 +474,34 @@ class GameEngine {
           this.player.x += 14;
         }
       } else {
-        const maxForward = (this.canvas ? this.canvas.width : 900) * 0.70;
-        if (this.player.x < maxForward) {
-          this.player.x += 14;
+        const cw = this.canvas ? this.canvas.width : 900;
+        const maxForward = cw * 0.70;
+        const maxBack = cw * 0.88;
+        const minPlayerLimit = cw * 0.22;
+
+        // Switch direction if limits are reached
+        if (this.fightDirection === 'right' && this.enemy.x >= maxBack - 10) {
+          this.fightDirection = 'left';
+        } else if (this.fightDirection === 'left' && this.player.x <= minPlayerLimit + 10) {
+          this.fightDirection = 'right';
         }
-        const dist = this.enemy.x - this.player.x;
-        if (dist < 110) {
-          const maxBack = (this.canvas ? this.canvas.width : 900) * 0.88;
-          if (this.enemy.x < maxBack) this.enemy.x += 12;
+
+        if (this.fightDirection === 'right') {
+          if (this.player.x < maxForward) {
+            this.player.x += 14;
+          }
+          const dist = this.enemy.x - this.player.x;
+          if (dist < 110) {
+            if (this.enemy.x < maxBack) this.enemy.x += 12;
+          }
+        } else {
+          // Fight direction is left, so move both fighters leftward while keeping distance
+          this.player.x -= 14;
+          this.enemy.x -= 14;
         }
       }
 
-      const attackTypes = ['slash', 'punch', 'kick'];
+      const attackTypes = ['slash', 'punch', 'crouch_punch', 'kick', 'crouch_kick'];
       const action = attackTypes[this.attackSeqIndex % attackTypes.length];
       this.attackSeqIndex++;
 
@@ -431,6 +517,20 @@ class GameEngine {
         soundEngine.playPunchSound();
         this.player.triggerAction('punch');
         this.spawnSparks(this.enemy.x - 20, this.enemy.y - 15, '#ff4d6d', 10);
+      } else if (action === 'crouch_punch') {
+        soundEngine.playPunchSound();
+        this.player.triggerAction('crouch_punch');
+        this.spawnSparks(this.enemy.x - 20, this.enemy.y + 20, '#ff4d6d', 10);
+        if (result.combo % 2 === 0) {
+          this.spawnHypeText("LOW PUNCH!!", this.enemy.x, this.enemy.y - 80, '#ff4d6d');
+        }
+      } else if (action === 'crouch_kick') {
+        soundEngine.playKickSound();
+        this.player.triggerAction('crouch_kick');
+        this.spawnSparks(this.enemy.x - 20, this.enemy.y + 40, '#ffd166', 10);
+        if (result.combo % 2 === 0) {
+          this.spawnHypeText("LOW SWEEP!!", this.enemy.x, this.enemy.y - 80, '#ffd166');
+        }
       } else {
         soundEngine.playKickSound();
         this.player.triggerAction('kick');
@@ -464,47 +564,35 @@ class GameEngine {
         this.player.x += 25;
       }
 
-      soundEngine.playJumpSound();
-      this.player.jump();
-      
       const levelConfig = getLevelDifficulty(this.level);
 
-      setTimeout(() => {
-        soundEngine.playKickSound();
-        this.player.triggerAction('jump_kick');
+      if (result.isSuperMove && this.state !== 'MULTIPLAYER_FIGHTING') {
+        // Player shoots a fireball! (আগুন ছুড়ে মারা)
+        this.player.triggerAction('slash'); // Play throwing slash pose
+        if (soundEngine) soundEngine.playJumpSound();
         
-        let dmg = levelConfig.playerWordDamage;
-        if (result.isSuperMove) {
-          soundEngine.playSuperMoveSound();
-          dmg = levelConfig.playerWordDamage + 15;
+        const startX = this.player.x + 40;
+        const startY = this.player.y - 15;
+        const targetX = this.enemy.x;
+        const targetY = this.enemy.y;
+        
+        const dmg = levelConfig.playerWordDamage + 15;
+        
+        const fireProj = new Projectile(startX, startY, targetX, targetY, '#ff5500', () => {
+          // Fireball Explodes!
+          if (soundEngine) soundEngine.playSuperMoveSound();
+          
+          this.enemy.isBeingThrown = true;
+          this.enemy.vy = -18; // Launch enemy high into the air
+          this.enemy.isGrounded = false;
+          this.enemy.state = 'hit';
+          
           this.enemy.takeDamage(dmg);
-          this.player.shakeAmount = 22;
-          this.enemy.shakeAmount = 30;
-          this.spawnSparks(this.enemy.x, this.enemy.y, '#ff0055', 35);
-          this.spawnHypeText("⚡ LIGHTNING FINISHER! ⚡", this.canvas.width * 0.5, 140, '#ffd166');
-          this.score += 250;
-        } else {
-          soundEngine.playAttackSlashSound();
-          this.enemy.takeDamage(levelConfig.playerWordDamage);
-          this.enemy.shakeAmount = 15;
-          this.spawnSparks(this.enemy.x, this.enemy.y, '#06d6a0', 20);
-          this.spawnHypeText("PERFECT COMBO!", this.enemy.x, this.enemy.y - 90, '#52b788');
-          this.score += 100;
-        }
+          this.player.shakeAmount = 10;
+          this.spawnSparks(this.enemy.x, this.enemy.y, '#ff3300', 25);
+          this.spawnHypeText("🔥 FIRE BLANKET!! 🔥", this.canvas.width * 0.5, 140, '#ffd166');
 
-        if (this.state === 'MULTIPLAYER_FIGHTING') {
-          window.multiplayer.sendMatchAction('word_completed', {
-            isSuperMove: result.isSuperMove,
-            damage: dmg,
-            playerX: this.player.x
-          });
-
-          if (this.enemy.hp <= 0) {
-            this.handleMultiplayerKO(true); // Local player scored KO
-          } else {
-            this.loadNextMultiplayerWord();
-          }
-        } else {
+          // Handle KO or wave progression after damage calculation
           if (this.enemy.hp <= 0) {
             if (this.roundTime > 0) {
               this.spawnNextEnemyWave();
@@ -515,8 +603,63 @@ class GameEngine {
           } else {
             this.loadNextWord();
           }
-        }
-      }, 120);
+        });
+        this.projectiles.push(fireProj);
+        this.score += 250;
+        this.renderTargetWord();
+      } else {
+        // Normal word completed (Standard jump kick)
+        if (soundEngine) soundEngine.playJumpSound();
+        this.player.jump();
+        
+        setTimeout(() => {
+          if (soundEngine) soundEngine.playKickSound();
+          this.player.triggerAction('jump_kick');
+          let dmg = levelConfig.playerWordDamage;
+          if (result.isSuperMove) {
+            // Multiplayer super move fallback
+            if (soundEngine) soundEngine.playSuperMoveSound();
+            dmg = levelConfig.playerWordDamage + 15;
+            this.player.shakeAmount = 22;
+            this.enemy.shakeAmount = 30;
+            this.spawnSparks(this.enemy.x, this.enemy.y, '#ff0055', 35);
+            this.spawnHypeText("⚡ LIGHTNING FINISHER! ⚡", this.canvas.width * 0.5, 140, '#ffd166');
+            this.enemy.takeDamage(dmg);
+            this.score += 250;
+          } else {
+            if (soundEngine) soundEngine.playAttackSlashSound();
+            this.enemy.takeDamage(levelConfig.playerWordDamage);
+            this.enemy.shakeAmount = 15;
+            this.spawnSparks(this.enemy.x, this.enemy.y, '#06d6a0', 20);
+            this.spawnHypeText("PERFECT COMBO!", this.enemy.x, this.enemy.y - 90, '#52b788');
+            this.score += 100;
+          }
+
+          if (this.state === 'MULTIPLAYER_FIGHTING') {
+            window.multiplayer.sendMatchAction('word_completed', {
+              isSuperMove: result.isSuperMove,
+              damage: dmg,
+              playerX: this.player.x
+            });
+            if (this.enemy.hp <= 0) {
+              this.handleMultiplayerKO(true); // Local player scored KO
+            } else {
+              this.loadNextMultiplayerWord();
+            }
+          } else {
+            if (this.enemy.hp <= 0) {
+              if (this.roundTime > 0) {
+                this.spawnNextEnemyWave();
+              } else {
+                this.slowMoTimer = 1.2;
+                setTimeout(() => this.triggerRoundWin(), 1200);
+              }
+            } else {
+              this.loadNextWord();
+            }
+          }
+        }, 120);
+      }
     } 
     else if (result.status === 'char_error') {
       soundEngine.playErrorSound();
@@ -563,12 +706,14 @@ class GameEngine {
         soundEngine.playPunchSound();
         this.enemy.triggerAction('punch');
         this.player.takeDamage(dmg);
+        this.player.x -= 20; // Knockback: push player to the left
         this.player.shakeAmount = 12;
         this.spawnSparks(this.player.x + 20, this.player.y - 10, '#ef233c', 12);
       } else {
         soundEngine.playKickSound();
         this.enemy.triggerAction('kick');
         this.player.takeDamage(dmg + 2);
+        this.player.x -= 28; // Strong knockback: push player further left
         this.player.shakeAmount = 15;
         this.spawnSparks(this.player.x + 20, this.player.y + 10, '#ff7b00', 14);
       }
@@ -1053,6 +1198,13 @@ class GameEngine {
 
       this.player.draw(this.ctx, this.stageTheme);
       this.enemy.draw(this.ctx, this.stageTheme);
+
+      for (let i = this.projectiles.length - 1; i >= 0; i--) {
+        const proj = this.projectiles[i];
+        proj.update();
+        proj.draw(this.ctx);
+        if (proj.life <= 0) this.projectiles.splice(i, 1);
+      }
 
       for (let i = this.particles.length - 1; i >= 0; i--) {
         const p = this.particles[i];

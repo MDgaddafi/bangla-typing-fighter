@@ -35,6 +35,8 @@ class Fighter {
     
     this.moveSpeed = 3.8;
     this.slashColor = isPlayer ? '#00f5d4' : '#ff0055';
+    this.isBeingThrown = false;
+    this.spinAngle = 0;
   }
 
   reset(x, y) {
@@ -50,6 +52,8 @@ class Fighter {
     this.animTimer = 0;
     this.frameTick = 0;
     this.currentFrame = 0;
+    this.isBeingThrown = false;
+    this.spinAngle = 0;
   }
 
   jump() {
@@ -90,6 +94,10 @@ class Fighter {
     this.frameTick++;
     this.currentFrame = Math.floor(this.frameTick / 4);
 
+    if (this.isBeingThrown) {
+      this.spinAngle += 0.28;
+    }
+
     // Physics Update
     if (!this.isGrounded) {
       this.vy += this.gravity;
@@ -99,6 +107,15 @@ class Fighter {
         this.y = this.groundY;
         this.vy = 0;
         this.isGrounded = true;
+
+        if (this.isBeingThrown) {
+          this.isBeingThrown = false;
+          this.spinAngle = 0;
+          if (window.gameEngine) {
+            window.gameEngine.triggerGroundSlam(this);
+          }
+        }
+
         if (this.state === 'jump' || this.state === 'jump_kick') {
           this.state = 'idle';
         }
@@ -156,6 +173,26 @@ class Fighter {
       ctx.filter = "hue-rotate(130deg) saturate(1.3) brightness(0.9)";
     }
 
+    // Crouch scaling (bose theke mara)
+    if (animState === 'crouch_punch' || animState === 'crouch_kick') {
+      ctx.translate(0, 85);
+      ctx.scale(1, 0.6);
+      ctx.translate(0, -85);
+    }
+
+    // Apply rotation for spinning jump-kick or being thrown mid-air
+    if (animState === 'jump_kick') {
+      const centerY = 85 - 40; // Center height of sprite
+      ctx.translate(0, centerY);
+      ctx.rotate(this.frameTick * 0.35 * this.facing);
+      ctx.translate(0, -centerY);
+    } else if (this.isBeingThrown) {
+      const centerY = 85 - 45;
+      ctx.translate(0, centerY);
+      ctx.rotate(this.spinAngle * this.facing);
+      ctx.translate(0, -centerY);
+    }
+
     this.drawSprite(ctx, animState);
 
     ctx.restore();
@@ -170,7 +207,11 @@ class Fighter {
       return;
     }
 
-    const frames = Fighter.SPRITES_MAP[animState] || Fighter.SPRITES_MAP['idle'];
+    let spriteState = animState;
+    if (animState === 'crouch_punch') spriteState = 'punch';
+    if (animState === 'crouch_kick') spriteState = 'kick';
+
+    const frames = Fighter.SPRITES_MAP[spriteState] || Fighter.SPRITES_MAP['idle'];
     const frameIndex = this.currentFrame % frames.length;
     const frame = frames[frameIndex];
 

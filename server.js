@@ -40,7 +40,16 @@ try {
   console.error("Error loading wordsData.js:", err);
 }
 
-// Generate shared word sequence for a match
+// Fisher-Yates shuffle
+function shuffleArray(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// Generate shared word sequence for a match — no repeated words until all are used
 function generateMatchWords() {
   const list = [];
   if (!wordsDb) {
@@ -51,20 +60,41 @@ function generateMatchWords() {
     ];
   }
   
-  // Generate 80 words with a progression of difficulty and occasional super moves
+  // Collect ALL unique words from every level into one big pool
+  const allWords = [];
+  const seenWords = new Set();
+  for (let l = 1; l <= 7; l++) {
+    const key = `level${l}`;
+    if (wordsDb[key]) {
+      for (const w of wordsDb[key]) {
+        if (!seenWords.has(w.word)) {
+          seenWords.add(w.word);
+          allWords.push({ ...w, isSuper: false });
+        }
+      }
+    }
+  }
+  
+  // Collect super moves separately
+  const allSupers = (wordsDb.superMoves || []).map(s => ({ ...s, isSuper: true }));
+  
+  // Build a shuffled queue; refill from a fresh shuffle when exhausted
+  let wordQueue = shuffleArray([...allWords]);
+  let superQueue = shuffleArray([...allSupers]);
+  
+  // Generate 80 words with occasional super moves
   for (let i = 0; i < 80; i++) {
     const isSuper = (i > 0 && i % 6 === 0);
-    if (isSuper && wordsDb.superMoves && wordsDb.superMoves.length > 0) {
-      const idx = Math.floor(Math.random() * wordsDb.superMoves.length);
-      list.push({ ...wordsDb.superMoves[idx], isSuper: true });
+    if (isSuper && allSupers.length > 0) {
+      if (superQueue.length === 0) {
+        superQueue = shuffleArray([...allSupers]);
+      }
+      list.push(superQueue.pop());
     } else {
-      // Distribute difficulty: early words are easier, later words are harder
-      let maxLvl = Math.min(7, Math.floor(i / 10) + 1);
-      let lvl = Math.floor(Math.random() * maxLvl) + 1;
-      const lvlKey = `level${lvl}`;
-      const pool = wordsDb[lvlKey] || wordsDb.level1;
-      const idx = Math.floor(Math.random() * pool.length);
-      list.push({ ...pool[idx], isSuper: false });
+      if (wordQueue.length === 0) {
+        wordQueue = shuffleArray([...allWords]);
+      }
+      list.push(wordQueue.pop());
     }
   }
   return list;
