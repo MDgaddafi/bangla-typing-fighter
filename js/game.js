@@ -952,16 +952,19 @@ class GameEngine {
   handleOpponentLeft() {
     if (this.state !== 'MULTIPLAYER_FIGHTING') return;
     if (this.roundTimerInterval) clearInterval(this.roundTimerInterval);
-    
-    alert("Opponent disconnected from the match.");
-    
+
     window.multiplayer.endMatch();
     document.getElementById('victoryModal').style.display = 'none';
     document.getElementById('gameOverModal').style.display = 'none';
     document.getElementById('fightHUD').style.display = 'none';
     document.getElementById('wordTargetDisplay').style.display = 'none';
-    document.getElementById('startMenuModal').style.display = 'flex';
+    document.getElementById('disconnectModal').style.display = 'flex';
     this.state = 'MENU';
+  }
+
+  closeDisconnectModal() {
+    document.getElementById('disconnectModal').style.display = 'none';
+    document.getElementById('startMenuModal').style.display = 'flex';
   }
 
   handleMultiplayerTimeout() {

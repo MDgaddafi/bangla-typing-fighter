@@ -222,6 +222,16 @@
     </div>
   </div>
 
+  <!-- DISCONNECT NOTIFICATION MODAL -->
+  <div id="disconnectModal" class="modal-backdrop" style="display: none;">
+    <div class="modal-card disconnected-card">
+      <div class="challenge-icon-banner">⚠️ OPPONENT LEFT</div>
+      <h2>Your opponent disconnected</h2>
+      <p>প্রতিপক্ষ ম্যাচ থেকে বেরিয়ে গেছে। আপনি লবিতে ফিরে যাওয়ার জন্য প্রস্তুত।</p>
+      <button class="btn-primary" onclick="window.gameEngine.closeDisconnectModal()">BACK TO LOBBY</button>
+    </div>
+  </div>
+
   <!-- MULTIPLAYER MODALS -->
   <!-- Select Duration Modal -->
   <div id="durationModal" class="modal-backdrop" style="display: none;">

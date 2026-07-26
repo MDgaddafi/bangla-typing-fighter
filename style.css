@@ -931,9 +931,17 @@ canvas {
   transition: all 0.2s;
 }
 
-.btn-danger-action:hover {
-  background: var(--bd-red);
-  color: #fff;
+
+
+.alert-badge {
+  display: inline-block;
+  padding: 8px 16px;
+  border-radius: 14px;
+  background: rgba(255, 82, 82, 0.15);
+  color: #ffb3b3;
+  font-weight: 700;
+  letter-spacing: 0.8px;
+  margin-bottom: 10px;
 }
 
 /* Spinner layout */
